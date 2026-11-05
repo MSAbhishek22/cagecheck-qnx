@@ -1,0 +1,13 @@
+--- a/app/llm.py
++++ b/app/llm.py
+@@ -18,6 +18,10 @@
+     key = os.environ.get("VULTR_INFERENCE_API_KEY", "")
+     model = os.environ.get("VULTR_INFERENCE_MODEL", "")
+     if not (base and key and model):
++        if os.uname().sysname == "QNX":
++            return ("[local explanation — QNX target has no outbound "
++                    "inference call] Policy decision stands. The finding "
++                    "above is the full, deterministic reason.")
+         return "[local mock — no Vultr Inference call] Policy decision stands. " \
+                "On Vultr, Serverless Inference explains this finding and suggests a safe replacement."
+     payload = {

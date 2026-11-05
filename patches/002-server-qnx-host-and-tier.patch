@@ -1,0 +1,28 @@
+--- a/app/server.py
++++ b/app/server.py
+@@ -18,7 +18,13 @@
+ 
+ BASE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+ AUDIT_PATH = os.path.join(BASE, "runs", "audit.jsonl")
+-CAGE_TIER = os.environ.get("CAGE_TIER", "local-process-patch (NOT a container boundary — Docker on Vultr is the real boundary)")
++_IS_QNX = os.uname().sysname == "QNX"
++_DEFAULT_TIER = (
++    "qnx-aps-partition (microkernel process isolation + Adaptive Partitioning budget)"
++    if _IS_QNX
++    else "local-process-patch (NOT a container boundary — Docker on Vultr is the real boundary)"
++)
++CAGE_TIER = os.environ.get("CAGE_TIER", _DEFAULT_TIER)
+ 
+ 
+ def check_snippet(snippet):
+@@ -124,7 +130,9 @@
+ 
+ 
+ def main():
+-    host = os.environ.get("HOST", "127.0.0.1")
++    # On QNX under QEMU the host browser reaches the target over the
++    # virtual network, so the server must listen on all interfaces there.
++    host = os.environ.get("HOST", "0.0.0.0" if _IS_QNX else "127.0.0.1")
+     port = int(os.environ.get("PORT", "8766"))
+     print(f"CageCheck on http://{host}:{port}/  (cage tier: {CAGE_TIER})")
+     ThreadingHTTPServer((host, port), Handler).serve_forever()

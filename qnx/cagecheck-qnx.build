@@ -1,0 +1,64 @@
+# CageCheck-on-QNX — mkifs OS image buildfile (DRAFT)
+#
+# Purpose: build a bootable QNX 8.0 x86_64 QEMU image that starts the
+# CageCheck server on boot, for the demo video and for judges to run.
+#
+# STATUS: DRAFT — UNVERIFIED on QNX SDP 8.0. The mkifs section format
+# ([virtual=...] .bootstrap / [+script] / [type=link] / [data=copy])
+# is the documented QNX format, but the exact startup binary name,
+# driver set and Python library paths for SDP 8.0 x86_64 QEMU must be
+# confirmed against the SDP 8.0 docs on the first QNX session.
+#
+# PREFERRED PATH (do this first): use the official QNX Quick Start
+# Target Image for QEMU + mkqnximage (see qemu/QEMU_NOTES.md) and copy
+# the staged files in with scp. Use this buildfile only if a custom
+# minimal image is needed for the "Low-level" story — it is NOT
+# required for the Ports category submission.
+
+[virtual=x86_64,bios +compress] .bootstrap = {
+    startup-bios
+    PATH=/proc/boot:/bin:/usr/bin:/opt/cagecheck-qnx procnto
+}
+
+[+script] .script = {
+    # Serial console for the QEMU -serial view.
+    devc-ser8250 -e -b115200 0x3f8,4 &
+    reopen /dev/ser1
+
+    # Network (QEMU user networking / tap — set per qemu/QEMU_NOTES.md).
+    io-pkt-v6-hc -d e1000 &
+    waitfor /dev/socket
+    dhcp.client &
+
+    # CageCheck: APS partition first, then the server inside it.
+    # (aps/ap are part of the base image on SDP 8.0 — VERIFY.)
+    aps modify -s recommended
+    ap create -b 5 -B 0 cagecheck_snippet
+    cd /opt/cagecheck-qnx
+    CAGE_QNX_APS_PARTITION=cagecheck_snippet HOST=0.0.0.0 PORT=8766 \
+        python3 -m app.server &
+}
+
+[type=link] /dev/console=/dev/ser1
+[type=link] /tmp=/dev/shmem
+[type=link] /usr/lib/ldqnx.so.2=/proc/boot/libc.so
+
+libc.so
+libm.so
+libsocket.so
+
+[data=copy]
+devc-ser8250
+devc-con
+io-pkt-v6-hc
+dhcp.client
+aps
+ap
+on
+python3
+esh
+ls
+cat
+pidin
+# CageCheck payload — staged by qnx/Makefile, paths resolved by MKIFS_PATH.
+# /opt/cagecheck-qnx/app/*.py, qnx_cage/*.py, run-on-qnx.sh
